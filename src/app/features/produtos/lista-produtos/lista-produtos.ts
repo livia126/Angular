@@ -1,40 +1,68 @@
-import { Component, signal, computed, effect } from '@angular/core';
+import { Component, signal, computed, effect, inject } from '@angular/core';
 import { Produto } from '../produto/produto';
+import{ProdutosService} from '../produtos.service';
 
 @Component({
   selector: 'app-lista-produtos',
   imports: [Produto],
-  templateUrl: './lista-produtos.html',
+  templateUrl:'./lista-produtos.html',
   styleUrl: './lista-produtos.css',
 })
 export class ListaProdutos {
+  private produtosService = inject(ProdutosService);
 
-  constructor(){
-    effect(()=>{
-      console.log('Lista de produtos alterado:', this.produtos());
+  constructor() {
+    //carrega o API
+    this.carregarProdutos();
+
+    // Observa as mudanças na lista de produtos e no valor total
+    effect(() => {
+      console.log('Lista de produtos alterada:', this.produtos());
     });
-    effect(()=>{
-      console.log('Valor total atualizado:', this.valorTotal ());
+    effect(() => {
+      console.log('Valor total atualizado:', this.valorTotal());
     });
-    effect(()=>{
-      if(typeof document !== 'undefined') {
-        document.title = `(${this.totalProdutos()})Minha Loja`;
+    effect(() => {
+      if (typeof document !== 'undefined') {
+        document.title = `(${this.totalProdutos()}) Minha Loja`;
+      }
+    });
+  }
+
+  carregarProdutos() {
+    // inicia loading
+    this.carregando.set(true);
+    this.produtosService.buscarProdutos().subscribe({
+      next:(dados) => {
+        const produtos = this.produtosService.transformarProdutos(dados);
+        this.produtos.set(produtos);
+        this.carregando.set(false);
+      },
+      error:(error) => {
+        console.error('Erro ao carregar produtos:', error);
+        this.carregando.set(false);
       }
     });
   }
 
   produtoSelecionado = signal<string | null>(null);
 
-  produtos = signal([
-    { nome: 'Notebook', preco: 3800 },
-    { nome: 'Mouse', preco: 179 },
-  ]);
+  produtos = signal<{ nome: string; preco: number }[]>([]);
+  carregando = signal(true);
+
   totalProdutos = computed(() => this.produtos().length);
+
   valorTotal = computed(() => {
     return this.produtos().reduce((total, item) => total + item.preco, 0);
   });
 
- 
+  carrinho = signal<{ nome: string; preco: number }[]>([]);
+
+  quantidadeCarrinho = computed(() => this.carrinho().length);
+
+  totalCarrinho = computed(() => {
+    return this.carrinho().reduce((total, item) => total + item.preco, 0);
+  });
 
   exibirProduto(nome: string) {
     this.produtoSelecionado.set(nome);
@@ -45,13 +73,10 @@ export class ListaProdutos {
   }
 
   substituirProdutos() {
-    this.produtos.set([{ nome: 'Produto novo', preco: 999 }]);
+    this.produtos.set([{ nome: 'Produtonovo', preco: 999 }]);
   }
 
   adicionarAoCarrinho(produto: { nome: string; preco: number }) {
-this.carrinho.update(listaAtual => [
-...listaAtual,
-produto
-]);
+    this.carrinho.update((listaAtual) => [...listaAtual, produto]);
   }
 }
