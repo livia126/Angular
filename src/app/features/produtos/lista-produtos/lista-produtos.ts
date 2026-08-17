@@ -1,21 +1,28 @@
 import { Component, signal, computed, effect, inject } from '@angular/core';
 import { Produto } from '../produto/produto';
-import{ProdutosService} from '../produtos.service';
+import { ProdutosService } from '../../../core/services/produtos.service';
+import { MatButtonModule } from '@angular/material/button';
+import { CarrinhoService } from '../../../core/services/carrinho.service';
 
 @Component({
   selector: 'app-lista-produtos',
-  imports: [Produto],
-  templateUrl:'./lista-produtos.html',
+  imports: [Produto, MatButtonModule],
+  templateUrl: './lista-produtos.html',
   styleUrl: './lista-produtos.css',
 })
 export class ListaProdutos {
   private produtosService = inject(ProdutosService);
+  carrinhoService = inject(CarrinhoService);
+
+  quantidadeCarrinho = this.carrinhoService.quantidade;
+  totalCarrinho = this.carrinhoService.total;
+
+  erro = signal<string | null>(null);
 
   constructor() {
-    //carrega o API
+    // carrega da API
     this.carregarProdutos();
 
-    // Observa as mudanças na lista de produtos e no valor total
     effect(() => {
       console.log('Lista de produtos alterada:', this.produtos());
     });
@@ -30,38 +37,32 @@ export class ListaProdutos {
   }
 
   carregarProdutos() {
-    // inicia loading
-    this.carregando.set(true);
+    this.erro.set(null); // limpa erroanterior
+    this.carregando.set(true); // ativaloading
     this.produtosService.buscarProdutos().subscribe({
-      next:(dados) => {
+      next: (dados) => {
         const produtos = this.produtosService.transformarProdutos(dados);
         this.produtos.set(produtos);
         this.carregando.set(false);
       },
-      error:(error) => {
-        console.error('Erro ao carregar produtos:', error);
+      error: (erro) => {
+        console.error('Erro ao carregar produtos:', erro);
+        this.erro.set('Erro ao carregar produtos. Verifique sua conexão e tente novamente.');
         this.carregando.set(false);
-      }
+      },
     });
   }
 
   produtoSelecionado = signal<string | null>(null);
 
   produtos = signal<{ nome: string; preco: number }[]>([]);
+
   carregando = signal(true);
 
   totalProdutos = computed(() => this.produtos().length);
 
   valorTotal = computed(() => {
     return this.produtos().reduce((total, item) => total + item.preco, 0);
-  });
-
-  carrinho = signal<{ nome: string; preco: number }[]>([]);
-
-  quantidadeCarrinho = computed(() => this.carrinho().length);
-
-  totalCarrinho = computed(() => {
-    return this.carrinho().reduce((total, item) => total + item.preco, 0);
   });
 
   exibirProduto(nome: string) {
@@ -77,6 +78,6 @@ export class ListaProdutos {
   }
 
   adicionarAoCarrinho(produto: { nome: string; preco: number }) {
-    this.carrinho.update((listaAtual) => [...listaAtual, produto]);
+    this.carrinhoService.adicionar(produto);
   }
 }
